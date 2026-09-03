@@ -1,144 +1,104 @@
 #!/usr/bin/env python3
 """
-Generate Chrome Web Store Promotional Banners:
-- Small Promo Tile: 440x280 px (Required for search/category featuring)
-- Marquee Promo Tile: 1400x560 px (Featured banner)
+Generate Chrome Web Store Promotional Banners using the new premium icon:
+- Small Promo Tile: 440x280 px
+- Marquee Promo Tile: 1400x560 px
 """
 
 import os
-import math
 from PIL import Image, ImageDraw, ImageFont
 
-def create_gradient(width, height, start_color, end_color):
-    """Create a vertical gradient image."""
-    base = Image.new('RGBA', (width, height), start_color)
-    top = Image.new('RGBA', (width, height), end_color)
-    mask = Image.new('L', (width, height))
-    for y in range(height):
-        # Subtle diagonal curve
-        val = int(255 * (y / height))
-        for x in range(width):
-            mask.putpixel((x, y), min(255, max(0, val)))
-    return Image.composite(top, base, mask)
-
-def draw_small_promo(output_path):
+def draw_small_promo(icon_img, output_path):
     w, h = 440, 280
-    img = create_gradient(w, h, (11, 15, 25, 255), (20, 30, 48, 255))
-    draw = ImageDraw.Draw(img)
+    canvas = Image.new('RGBA', (w, h), (10, 14, 23, 255))
+    draw = ImageDraw.Draw(canvas)
 
-    # Decorative glow circle behind logo
-    for r in range(80, 0, -2):
-        alpha = int(25 * (1 - r / 80))
-        draw.ellipse([70 - r, 90 - r, 70 + r, 90 + r], fill=(62, 166, 255, alpha))
+    # Place resized icon on the left
+    icon_resized = icon_img.resize((150, 150), Image.Resampling.LANCZOS)
+    canvas.paste(icon_resized, (25, 45), icon_resized if icon_resized.mode == 'RGBA' else None)
 
-    # Lightning Icon (⚡)
-    lightning_points = [
-        (65, 52), (82, 52), (72, 85), (88, 85), (55, 128), (62, 95), (48, 95)
-    ]
-    draw.polygon(lightning_points, fill=(62, 166, 255, 255))
-
-    # Title: SubDeck
-    # Fallback to default font or system fonts
     try:
-        font_title = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 38)
-        font_tagline = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 16)
-        font_badge = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 12)
+        font_title = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 32)
+        font_sub = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 14)
+        font_tag = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 11)
     except Exception:
         font_title = ImageFont.load_default()
-        font_tagline = ImageFont.load_default()
-        font_badge = ImageFont.load_default()
+        font_sub = ImageFont.load_default()
+        font_tag = ImageFont.load_default()
 
-    draw.text((105, 60), "SubDeck", font=font_title, fill=(255, 255, 255, 255))
-    draw.text((105, 102), "Smart Subscription Folders", font=font_tagline, fill=(160, 175, 200, 255))
+    draw.text((195, 55), "SubDeck", font=font_title, fill=(255, 255, 255, 255))
+    draw.text((195, 95), "Smart Subscription Folders", font=font_sub, fill=(160, 185, 220, 255))
+    draw.text((195, 115), "for YouTube™", font=font_sub, fill=(62, 166, 255, 255))
 
-    # Subtext / Feature pills
-    pill_y = 155
-    features = [
-        ("📁 Category Decks", (40, 50, 70), (220, 230, 245)),
-        ("✨ AI Auto-Organize", (20, 60, 90), (100, 200, 255)),
-        ("🎯 Custom Feed", (50, 30, 60), (245, 180, 220)),
-    ]
-
-    pill_x = 35
-    for text, bg_col, text_col in features:
-        bbox = draw.textbbox((0, 0), text, font=font_badge)
+    # Feature tags
+    pills = [("📁 Folders", (30, 45, 70)), ("✨ AI Clustering", (18, 55, 85)), ("🎯 Feed Filter", (45, 30, 55))]
+    px = 195
+    py = 145
+    for text, bg in pills:
+        bbox = draw.textbbox((0, 0), text, font=font_tag)
         pw = bbox[2] - bbox[0] + 16
-        ph = 26
-        draw.rounded_rectangle([pill_x, pill_y, pill_x + pw, pill_y + ph], radius=13, fill=bg_col + (255,))
-        draw.text((pill_x + 8, pill_y + 6), text, font=font_badge, fill=text_col)
-        pill_x += pw + 8
+        draw.rounded_rectangle([px, py, px + pw, py + 22], radius=11, fill=bg + (255,))
+        draw.text((px + 8, py + 4), text, font=font_tag, fill=(230, 240, 255, 255))
+        px += pw + 6
 
-    # Bottom privacy claim
-    draw.line([(35, 215), (405, 215)], fill=(40, 50, 70, 255), width=1)
-    draw.text((35, 230), "🔒 100% Private & Local  •  Works natively in YouTube™", font=font_badge, fill=(120, 135, 160, 255))
+    # Bottom bar
+    draw.line([(25, 220), (415, 220)], fill=(30, 42, 60, 255), width=1)
+    draw.text((25, 235), "🔒 100% Private & Local  •  Zero Data Collection", font=font_tag, fill=(130, 150, 180, 255))
 
-    img.save(output_path, "PNG")
+    canvas.save(output_path, "PNG")
     print(f"✅ Created Small Promo Tile: {output_path} (440x280)")
 
-def draw_marquee_promo(output_path):
+def draw_marquee_promo(icon_img, output_path):
     w, h = 1400, 560
-    img = create_gradient(w, h, (10, 14, 23, 255), (18, 26, 42, 255))
-    draw = ImageDraw.Draw(img)
+    canvas = Image.new('RGBA', (w, h), (9, 13, 22, 255))
+    draw = ImageDraw.Draw(canvas)
 
-    # Ambient radial glow
-    for r in range(250, 0, -4):
-        alpha = int(30 * (1 - r / 250))
-        draw.ellipse([250 - r, 240 - r, 250 + r, 240 + r], fill=(62, 166, 255, alpha))
-
-    # Large Lightning Icon
-    scale = 3.2
-    ox, oy = 160, 130
-    pts = [
-        (ox + 65*scale, oy + 52*scale),
-        (ox + 82*scale, oy + 52*scale),
-        (ox + 72*scale, oy + 85*scale),
-        (ox + 88*scale, oy + 85*scale),
-        (ox + 55*scale, oy + 128*scale),
-        (ox + 62*scale, oy + 95*scale),
-        (ox + 48*scale, oy + 95*scale)
-    ]
-    draw.polygon(pts, fill=(62, 166, 255, 255))
+    # Place large icon on the left
+    icon_resized = icon_img.resize((360, 360), Image.Resampling.LANCZOS)
+    canvas.paste(icon_resized, (120, 100), icon_resized if icon_resized.mode == 'RGBA' else None)
 
     try:
-        font_huge = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 92)
-        font_sub = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 36)
-        font_pill = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 22)
+        font_huge = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 76)
+        font_sub = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 30)
+        font_pill = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 18)
     except Exception:
         font_huge = ImageFont.load_default()
         font_sub = ImageFont.load_default()
         font_pill = ImageFont.load_default()
 
-    draw.text((500, 150), "SubDeck ⚡", font=font_huge, fill=(255, 255, 255, 255))
-    draw.text((505, 260), "Smart Subscription Folders for YouTube™", font=font_sub, fill=(160, 185, 220, 255))
+    draw.text((540, 140), "SubDeck ⚡", font=font_huge, fill=(255, 255, 255, 255))
+    draw.text((545, 235), "Smart Subscription Folders for YouTube™", font=font_sub, fill=(160, 185, 220, 255))
 
-    # Feature tags
     pills = [
-        "📁 Accordion Sidebar Folders",
-        "✨ AI-Powered Channel Clustering",
+        "📁 Native Sidebar Accordion Folders",
+        "✨ AI Channel Clustering (Gemini)",
         "🎯 Feed Filtering & Infinite Scroll",
-        "🔒 100% Private (No Tracking)"
+        "🔒 100% Private & Local Storage"
     ]
-    px = 505
-    py = 340
+    px = 545
+    py = 310
     for p in pills:
         bbox = draw.textbbox((0, 0), p, font=font_pill)
         pw = bbox[2] - bbox[0] + 24
-        draw.rounded_rectangle([px, py, px + pw, py + 42], radius=21, fill=(25, 40, 65, 255))
-        draw.text((px + 12, py + 9), p, font=font_pill, fill=(220, 235, 255, 255))
-        px += pw + 16
-        if px > 1200:
-            px = 505
-            py += 56
+        draw.rounded_rectangle([px, py, px + pw, py + 38], radius=19, fill=(22, 36, 58, 255))
+        draw.text((px + 12, py + 8), p, font=font_pill, fill=(220, 235, 255, 255))
+        px += pw + 14
+        if px > 1220:
+            px = 545
+            py += 52
 
-    img.save(output_path, "PNG")
+    canvas.save(output_path, "PNG")
     print(f"✅ Created Marquee Promo Tile: {output_path} (1400x560)")
 
 def main():
-    assets_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'assets', 'store')
-    os.makedirs(assets_dir, exist_ok=True)
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    icon_src = os.path.join(root, 'assets', 'icons', 'icon128.png')
+    store_dir = os.path.join(root, 'assets', 'store')
+    os.makedirs(store_dir, exist_ok=True)
 
-    draw_small_promo(os.path.join(assets_dir, 'promo_small_440x280.png'))
-    draw_marquee_promo(os.path.join(assets_dir, 'promo_marquee_1400x560.png'))
+    icon_img = Image.open(icon_src).convert('RGBA')
+    draw_small_promo(icon_img, os.path.join(store_dir, 'promo_small_440x280.png'))
+    draw_marquee_promo(icon_img, os.path.join(store_dir, 'promo_marquee_1400x560.png'))
 
 if __name__ == '__main__':
     main()
